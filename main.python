@@ -1,0 +1,140 @@
+import requests
+import json
+import ast 
+import time
+
+key = 'CUSTf1c8a588193ad4d7a4dc098fb59d6cd0'
+spending_month = 0
+theallowance = 0
+
+will = "5516c07aa520e0066c9ac33b"
+aaron = "5516c07aa520e0066c9ac33c"
+rose = "5516c07aa520e0066c9ac33d"
+
+
+#info:
+def all_accounts(user1, user2, user3): #for my sanity
+	will_acct = requests.get('http://api.reimaginebanking.com/customers/' + user1 + '/accounts?key='+key)
+	parsed1 = json.dumps(ast.literal_eval(will_acct.text))
+	print 
+	print "Will's account info: " + parsed1
+	print
+	aaron_acct = requests.get('http://api.reimaginebanking.com/customers/' + user2 + '/accounts?key='+key)
+	parsed2 = json.dumps(ast.literal_eval(aaron_acct.text))
+	print "Aaron's account info: " + parsed2
+	print
+	rose_acct = requests.get('http://api.reimaginebanking.com/customers/' + user3 + '/accounts?key='+key)
+	parsed3 = json.dumps(ast.literal_eval(rose_acct.text))
+	print "Rose's account info: " + parsed3
+	return ""
+
+#all_accounts(will, aaron, rose)
+
+
+def deleting_accounts(user): #deletes all the accounts you made on accident lol except for first one 
+	reqs =  requests.get('http://api.reimaginebanking.com/customers/' + user + '/accounts?key='+key)
+	reqs_parsed = json.loads(json.dumps(ast.literal_eval(reqs.text)))
+
+	accounts = [] #list of all accounts
+
+	for account in reqs_parsed[1:]:
+		accounts.append(account["_id"])
+
+	for Id in accounts:
+		requests.post('http://api.reimaginebanking.com/accounts/'+user+'/accounts?key=' + key)
+
+	print "your account: " 
+	return reqs_parsed
+
+
+#deleting_accounts(rose)
+
+#gonna make a new acct for spending bc i cant update $$ in api, called Credit Card
+# headers = {'content-type': 'application/json'}
+# datafor = {"type": "Savings", "nickname": "spending", "rewards": 0, "balance": 0}
+# newacct = requests.post('http://api.reimaginebanking.com/customers/5516c07aa520e0066c9ac33c/accounts?key=' + key, data = json.dumps(datafor), headers = headers)
+# letssee = json.loads(json.dumps(ast.literal_eval(newacct.text)))
+
+# print letssee
+
+
+def allowance(giver, reciever): #giving allowance 
+	giver0 = requests.get('http://api.reimaginebanking.com/customers/' + giver + '/accounts?key=' + key)
+	giver = json.loads(json.dumps(ast.literal_eval(giver0.text)))[0]["_id"]
+	reciever0 = requests.get('http://api.reimaginebanking.com/customers/' + reciever + '/accounts?key=' + key)
+	reciever = json.loads(json.dumps(ast.literal_eval(reciever0.text)))[1]["_id"] #aaron's second account is checkings
+
+	allowance = int(raw_input("How much is the monthly allowance?"))
+	data = {"transaction_type": "cash", "payee_id": reciever, "amount": allowance}
+	#print data 
+	headers = {'content-type': 'application/json'}
+	giving = requests.post('http://api.reimaginebanking.com/accounts/' + giver +'/transactions?key=' + key, data = json.dumps(data), headers = headers)
+	giving_parsed = json.dumps(ast.literal_eval(giving.text))
+	return allowance
+	#print giving_parsed
+
+#allowance(rose, aaron)
+
+def spending(kid): #kid spending
+
+	checkings = requests.get('http://api.reimaginebanking.com/customers/' + kid + '/accounts?key=' + key)
+	checkingsacct = json.loads(json.dumps(ast.literal_eval(checkings.text)))[1]["_id"] #aaron's second account is checkings
+	spendings = json.loads(json.dumps(ast.literal_eval(checkings.text)))[2]["_id"]
+
+	spent = int(raw_input("How much did you spend this month?"))
+	data = {"transaction_type": "cash", "payee_id": spendings, "amount": spent}
+	headers = {'content-type': 'application/json'}
+
+	spent2 = requests.post('http://api.reimaginebanking.com/accounts/' + checkingsacct + '/transactions?key=' + key, data = json.dumps(data), headers = headers)
+	spent_parsed = json.dumps(ast.literal_eval(spent2.text))
+	return spent
+	#spending_month = spent 
+
+# print spending(aaron)
+
+print all_accounts(will, aaron, rose)
+
+
+def matching(giver, reciever): #incentivizing, every run is one month
+	allowances = allowance(giver, reciever)
+	print "give me a minute to recalculate your balance..."
+	print
+	time.sleep(60)
+ 
+	moneyspent = spending(reciever)
+	print "give me a minute to recalculate your balance..."
+	print 
+	#print "moneyspent" + str(moneyspent)
+	time.sleep(60)
+
+
+	giver0 = requests.get('http://api.reimaginebanking.com/customers/' + giver + '/accounts?key=' + key)
+	giver = json.loads(json.dumps(ast.literal_eval(giver0.text)))[0]["_id"]
+
+	reciever0 = requests.get('http://api.reimaginebanking.com/customers/' + reciever + '/accounts?key=' + key)
+	reciever = json.loads(json.dumps(ast.literal_eval(reciever0.text)))[0]["_id"] #savings acct
+	moneyleft =  json.loads(json.dumps(ast.literal_eval(reciever0.text)))[1]["balance"]
+
+	#print "moneyleft" + str(moneyleft)
+
+	if moneyleft > 0 and moneyspent < 20:
+			data = {"transaction_type": "cash", "payee_id": reciever, "amount": allowances-moneyspent}
+			headers = {'content-type': 'application/json'}
+			giving = requests.post('http://api.reimaginebanking.com/accounts/' + giver +'/transactions?key=' + key, data = json.dumps(data), headers = headers)
+			giving_parsed = json.dumps(ast.literal_eval(giving.text))
+			print "congrats! you saved well. here's $" + str(allowances-moneyspent) + " !"
+
+	time.sleep(60)
+
+	print "checkings balance: " + str(json.loads(json.dumps(ast.literal_eval(reciever0.text)))[1]["balance"])
+	print "savings balance: " + str(json.loads(json.dumps(ast.literal_eval(reciever0.text)))[0]["balance"])
+
+
+matching(rose, aaron)
+
+
+
+
+
+
+
